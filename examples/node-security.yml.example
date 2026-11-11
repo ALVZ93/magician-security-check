@@ -1,0 +1,41 @@
+name: Node security audit
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "17 7 * * 1" # Lunes 07:17 UTC; GitHub schedules use UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    name: Runtime, lockfile and dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up recent patched Node for the scanner
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          check-latest: true
+          package-manager-cache: false
+
+      # This scanner Node version is NOT proof of the version deployed.
+      - name: Check runtime declarations and deployment files
+        run: node scripts/security-check.mjs
+
+      - name: Audit full dependency tree at HIGH severity and above
+        run: node scripts/dependency-audit.mjs

@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm # Also handles Yarn and pnpm dependencies
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Uncomment if the repo has a Dockerfile at the root:
+  # - package-ecosystem: docker
+  #   directory: "/"
+  #   schedule:
+  #     interval: weekly

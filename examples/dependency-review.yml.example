@@ -1,0 +1,17 @@
+# OPTIONAL: rename to .github/workflows/dependency-review.yml only if the repo
+# has GitHub Dependency Review available (availability varies by repository/plan).
+# The main security audit works without this action.
+name: Dependency review (optional)
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
