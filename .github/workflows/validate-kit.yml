@@ -33,9 +33,12 @@ jobs:
           package-manager-cache: false
       - name: Check script syntax
         run: |
-          for script in scripts/*.mjs checks/*.mjs; do node --check "$script"; done
+          for script in cli.mjs scripts/*.mjs checks/*.mjs; do node --check "$script"; done
       - name: Test scanner behavior
         run: node --test
+      - name: Verify the installable npm package and standalone CLI
+        if: matrix.node == '24'
+        run: node checks/package-smoke.mjs
       - name: Exercise the real npm advisory registry
         if: matrix.node == '24'
         run: node checks/registry-integration.mjs --osv-fixture
@@ -51,3 +54,19 @@ jobs:
       - name: Verify OSV actually reported the vulnerable package
         if: ${{ !cancelled() && matrix.node == '24' }}
         run: node checks/assert-osv-fixture.mjs
+
+  windows:
+    name: Windows CLI
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: node --test
+      - run: node checks/package-smoke.mjs
+      - run: node checks/registry-integration.mjs

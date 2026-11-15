@@ -9,3 +9,4 @@ dist/
 Thumbs.db
 .rubicon-osv-fixture/
 osv-results.json
+*.tgz

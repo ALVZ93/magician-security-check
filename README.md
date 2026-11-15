@@ -26,7 +26,7 @@
 
 </details>
 
-**[Instalación](#instalación-en-una-aplicación-o-monorepo) · [Autofusión](#autofusión-de-patchminor) · [Contrato](docs/automation-spec.md) · [CI](https://github.com/ALVZ93/magician-security-check/actions)**
+**[Instalación](#instalación-en-una-aplicación-o-monorepo) · [Agentes](#uso-con-agentes) · [Autofusión](#autofusión-de-patchminor) · [Contrato](docs/automation-spec.md) · [CI](https://github.com/ALVZ93/magician-security-check/actions)**
 
 Kit para **detectar stacks, auditar vulnerabilidades y mantener dependencias mediante PR de Dependabot**, con autofusión de patch/minor cuando GitHub exige que pasen los checks de seguridad y de la aplicación.
 
@@ -44,6 +44,67 @@ Creado por **Rubicon Labs**. Los scripts no tienen dependencias npm. Este reposi
 - Solo solicita autofusión de PR verificadas de Dependabot con cambios patch/minor en archivos de dependencias permitidos. GitHub espera a que se satisfagan los checks obligatorios y las revisiones configuradas.
 
 ## Instalación en una aplicación o monorepo
+
+Con Node 22+ y npm, desde el proyecto que quieras proteger:
+
+```bash
+npx --yes --ignore-scripts https://github.com/ALVZ93/magician-security-check/releases/download/v1.0.0/magician-security-check-1.0.0.tgz init
+node .magician/cli.mjs scan --json
+```
+
+El primer comando descarga una versión fijada y crea `.magician/` con la CLI local, `MAGICIAN.md` y una sección en `AGENTS.md`. En un repo individual añade también el workflow y Dependabot; en una carpeta matriz instala el punto de entrada compartido, sin crear CI en la carpeta contenedora. No requiere instalación global, cuenta de npm ni Git. La copia local se ejecuta sin volver a descargar el paquete.
+
+Para revisar primero lo que se instalará, añade `--dry-run --json` al comando de `init`. Puedes indicar otro proyecto con `--root /ruta/al/proyecto`. La instalación es repetible: conserva archivos idénticos, detecta modificaciones del usuario y preserva instrucciones existentes. Si ya tienes Dependabot, deja `.github/dependabot.magician.yml` como candidato para combinar con tu configuración y lo indica en el informe.
+
+```bash
+node .magician/cli.mjs doctor --json
+node .magician/cli.mjs inventory --json
+```
+
+### Un repo o una carpeta matriz
+
+Los mismos comandos funcionan sobre **un repo individual** o una carpeta que contiene varios repos. Magician detecta el caso automáticamente; no trata cada paquete de un monorepo Git como un repo separado.
+
+```bash
+# Desde un repo individual o desde la carpeta que contiene tus repos
+node .magician/cli.mjs matrix
+node .magician/cli.mjs scan
+node .magician/cli.mjs update --dry-run
+node .magician/cli.mjs update --apply
+```
+
+También puedes ejecutar desde cualquier sitio con `--root /ruta/a/un/repo` o `--root /ruta/a/mis/repos`. Usa `--scope project` o `--scope workspace` si necesitas resolver una estructura ambigua. Para CI propio de cada repo, ejecuta `init --root /ruta/al/repo`; para analizar toda la matriz basta con la CLI compartida.
+
+Sin `--json` muestra una tabla y los hallazgos/acciones para revisarlos a mano. `update` **planifica por defecto**; `--apply` aplica por ahora correcciones npm compatibles mediante `audit fix --package-lock-only --ignore-scripts`, sin `--force`. Exige Git limpio, evita dos actualizadores simultáneos y restaura los manifiestos/lockfiles si detecta una major, un prerelease, cambios de manifiesto o falla la auditoría posterior. Deja los cambios sin commit/push y señala que faltan los tests/build de la aplicación.
+
+Las actualizaciones de otros gestores, de runtime y las majors quedan detalladas para revisión por el agente o mediante las PR de seguridad de Dependabot. No se informa de ellas como aplicadas automáticamente.
+
+Versiona los archivos instalados y habilita Dependabot alerts/security updates en GitHub. Declara la versión de Node y conserva los lockfiles de tus aplicaciones. `doctor` identifica los gestores y herramientas que necesita el análisis local; si otro ecosistema requiere OSV-Scanner y no está disponible, el análisis devuelve error de cobertura en lugar de un resultado limpio.
+
+## Uso con agentes
+
+La CLI no hace preguntas y emite **un único JSON en stdout** con `--json`. `AGENTS.md` remite a la guía local `MAGICIAN.md`; cualquier agente capaz de ejecutar comandos puede usarla.
+
+| Comando | Uso |
+| --- | --- |
+| `init --dry-run --json` | Revisar los cambios previstos sin escribir. |
+| `inventory --json` | Descubrir stacks y lockfiles sin red. |
+| `matrix --json` | Obtener la matriz, con uno o varios repos. |
+| `doctor --json` | Comprobar configuración y herramientas. |
+| `scan --json` | Auditar runtime y dependencias. |
+| `update --json` | Planificar correcciones de seguridad. |
+| `update --apply --json` | Aplicar las correcciones npm compatibles y volver a auditar. |
+
+Los comandos locales se ejecutan como `node .magician/cli.mjs <comando>`. La salida incluye `schemaVersion`, `status`, `exitCode`, `errors`, `warnings` y `data.repositories[]` tanto para un repo como para una matriz: cada elemento conserva sus proyectos, checks, resultados nativos, acciones y cobertura. Códigos: **0 = correcto, 1 = hallazgos, 2 = error o análisis incompleto**. Un error en un repo no oculta los resultados de los demás; un error de red, herramienta ausente o respuesta inválida nunca cuenta como limpio.
+
+Ejemplo de petición al agente:
+
+> Usa Magician Security Check en esta carpeta, que puede ser un repo o una matriz de repos. Consulta la matriz y los escaneos en JSON, aplica las correcciones compatibles con `update --apply`, revisa las acciones manuales y ejecuta los tests/build de los proyectos afectados antes de proponer los cambios para publicar.
+
+[Guía de agentes](docs/agents.md) · [Esquema JSON](docs/agent-report.schema.json). Para actualizar, ejecuta `init` desde la nueva versión fijada; solo sustituye archivos gestionados que no hayas modificado.
+
+<details>
+<summary>Instalación manual compatible con las versiones anteriores</summary>
 
 1. Copia **todos** los archivos `scripts/*.mjs` a `scripts/` del repositorio destino, conservando sus nombres.
 2. Copia `examples/node-security.yml.example` a `.github/workflows/node-security.yml`.
@@ -65,7 +126,9 @@ Creado por **Rubicon Labs**. Los scripts no tienen dependencias npm. Este reposi
 5. Activa **Dependabot alerts** y **Dependabot security updates** en GitHub. Las actualizaciones de versiones las configura el YAML; las correcciones de vulnerabilidades conocidas necesitan también security updates.
 6. Abre una PR de instalación y comprueba el job **Rubicon security**, además de tus tests, lint y build habituales.
 
-El inventario se vuelve a calcular en cada ejecución. Al añadir un ecosistema o una raíz independiente nueva, vuelve a generar/comparar Dependabot para que sus actualizaciones incluyan esa ubicación. El kit no modifica silenciosamente una configuración existente ni se instala en otros repositorios de tu cuenta.
+</details>
+
+El inventario se vuelve a calcular en cada ejecución. Al añadir un ecosistema o una raíz independiente nueva, repite `init` para actualizar la configuración gestionada de Dependabot o generar un candidato si tienes configuración propia. La instalación no modifica ajustes remotos ni se aplica a otros repositorios de tu cuenta.
 
 ### Monorepos y cobertura
 
@@ -77,7 +140,7 @@ El inventario se vuelve a calcular en cada ejecución. Al añadir un ecosistema 
 
 ## Autofusión de patch/minor
 
-1. Copia `examples/dependabot-automerge.yml.example` a `.github/workflows/dependabot-automerge.yml`.
+1. Ejecuta `node .magician/cli.mjs init --automerge` para añadir el workflow. En instalaciones manuales, copia `examples/dependabot-automerge.yml.example` a `.github/workflows/dependabot-automerge.yml`.
 2. Habilita **Allow auto-merge** y el método **Squash** en el repositorio.
 3. Protege la rama predeterminada con checks obligatorios de seguridad **y de tu aplicación**. Configura, por ejemplo, `Rubicon security` y el nombre real de tu job de tests/build. Para exigir también la prueba contra la base actual, activa la opción de mantener la rama actualizada antes de fusionar.
 4. Crea la variable de repositorio **`RUBICON_REQUIRED_CHECKS`** con esos mismos nombres:
@@ -99,18 +162,18 @@ Para desactivar futuras solicitudes, deshabilita el workflow. Desactiva también
 Desde la raíz del repositorio destino, con Node 22 o superior:
 
 ```bash
-node scripts/project-inventory.mjs --json
-node scripts/audit-projects.mjs
+node .magician/cli.mjs inventory --json
+node .magician/cli.mjs scan --json
 ```
 
-Para revisar solo las declaraciones de un proyecto:
+Para revisar solo las declaraciones de un proyecto en la instalación local:
 
 ```bash
-node scripts/security-check.mjs --offline
-node scripts/dependency-audit.mjs
+node .magician/scripts/security-check.mjs --offline
+node .magician/scripts/dependency-audit.mjs --json
 ```
 
-`--offline` solo evita las consultas del runtime; usa un snapshot de soporte de octubre de 2026, avisa y no certifica el parche actual. Las auditorías de paquetes siguen necesitando red. npm/pnpm/Yarn están orientados a Linux/macOS y al runner Ubuntu; en Windows, usa WSL para esas auditorías. pnpm/Yarn requieren Corepack disponible.
+`scan --offline` solo evita las consultas del runtime; usa un snapshot de soporte de octubre de 2026, avisa y no certifica el parche actual. Las auditorías de paquetes siguen necesitando red. La CLI y las auditorías npm/pnpm/Yarn funcionan también en Windows sin activar un shell para los comandos del gestor. pnpm/Yarn requieren Corepack disponible.
 
 ## Límites
 
@@ -129,7 +192,7 @@ node scripts/dependency-audit.mjs
 node --test
 ```
 
-CI prueba Node 22/24/26, inventario mixto, workspaces, enlaces, gestores, soporte de Node y casos negativos de autofusión. También contrasta una dependencia de desarrollo vulnerable aislada contra el registro npm y OSV, sin instalarla ni ejecutar lifecycle scripts. Las plantillas se validan con actionlint antes de publicarse.
+CI prueba Node 22/24/26, inventario mixto, workspaces, enlaces, gestores, soporte de Node y casos negativos de autofusión. También verifica el paquete instalable y la CLI en Linux/Windows, además de contrastar una dependencia de desarrollo vulnerable aislada contra npm y OSV, sin instalarla ni ejecutar lifecycle scripts. Desde el código fuente, usa `node cli.mjs --help`; la instalación de otra aplicación sigue usando la copia `.magician/`. Las plantillas se validan con actionlint antes de publicarse.
 
 Contrato de comportamiento: [`docs/automation-spec.md`](docs/automation-spec.md).
 
