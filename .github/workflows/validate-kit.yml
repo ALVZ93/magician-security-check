@@ -46,9 +46,8 @@ jobs:
         with:
           scan-args: |-
             --format=json
-            --output=osv-results.json
-            --recursive
-            ./.rubicon-osv-fixture/
+            --output-file=osv-results.json
+            --lockfile=./.rubicon-osv-fixture/package-lock.json
       - name: Verify OSV actually reported the vulnerable package
         if: ${{ !cancelled() && matrix.node == '24' }}
         run: node checks/assert-osv-fixture.mjs
