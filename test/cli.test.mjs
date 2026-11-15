@@ -31,6 +31,13 @@ function invoke(root, args, entry = cli) {
 }
 const valid = { 'package.json': {}, 'package-lock.json': '{}', '.nvmrc': '24' };
 
+test('POSIX npx symlink entry points actually execute the CLI', { skip: process.platform === 'win32' }, (t) => {
+  const root = fixture(t); const entry = join(root, 'linked-cli.mjs');
+  symlinkSync(cli, entry);
+  const result = invoke(root, ['--version'], entry);
+  assert.equal(result.status, 0); assert.equal(result.report.data.version, '1.0.0');
+});
+
 test('init dry-run creates no files or directories', (t) => {
   const root = fixture(t, valid); const before = readdirSync(root).sort();
   const result = invoke(root, ['init', '--dry-run', '--automerge']);

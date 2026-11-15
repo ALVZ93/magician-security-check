@@ -79,7 +79,7 @@ export function execute(args = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const { json, report } = execute();
   if (json) console.log(JSON.stringify(report));
   else if (report.command === 'help' && report.status === 'ok') process.stdout.write(help);
