@@ -1,0 +1,12 @@
+{
+  "format": "PNG",
+  "sha256": "29adfe43d63dc432976b6985bbd8f9584cf86d369fc93bd3132ea4dfdd0d07b1",
+  "height": 887,
+  "source": "Built-in ImageGen",
+  "prompt": "magician-fantasy-80s.prompt.md",
+  "description": "Original 1980s fantasy cover illustration for Magician Security Check.",
+  "path": "assets/magician-fantasy-80s.png",
+  "bytes": 3132412,
+  "created": "2026-11-15",
+  "width": 1774
+}
