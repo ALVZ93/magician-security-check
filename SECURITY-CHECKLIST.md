@@ -1,4 +1,4 @@
-# Checklist de seguridad — Rubicon Labs (Node.js / Next.js / Astro)
+# Magician Security Check · Checklist Node.js / Next.js / Astro
 
 **Frecuencia:** al abrir PR, cada lunes (auditoría automática), y tras cualquier alerta oficial de seguridad.
 

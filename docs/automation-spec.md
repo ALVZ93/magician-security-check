@@ -1,4 +1,4 @@
-# Contrato de automatización
+# Magician Security Check · Contrato de automatización
 
 ## Resultado
 

@@ -1,4 +1,4 @@
-name: Dependabot compatible auto-merge
+name: Magician Dependabot auto-merge
 
 on:
   pull_request_target:

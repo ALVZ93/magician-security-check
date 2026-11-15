@@ -1,4 +1,4 @@
-name: Rubicon security audit
+name: Magician security audit
 
 on:
   pull_request:
