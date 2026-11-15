@@ -1,4 +1,4 @@
-name: Validate security kit
+name: Magician Security Check
 
 on:
   pull_request:

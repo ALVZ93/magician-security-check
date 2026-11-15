@@ -178,7 +178,7 @@ await verifyPatches();
 if (process.env.GITHUB_STEP_SUMMARY) {
   const row = (items, symbol) => items.map((v) => `- ${symbol} ${v}`).join('\n');
   const text = [
-    '## Rubicon Node security: runtime & deployment',
+    '## Magician Security Check: runtime & deployment',
     row(failures, '❌'), row(warnings, '⚠️'), row(info, '✅'),
     '\n**Nota:** verificar también el runtime real desplegado. Escanear un repositorio no equivale a auditar el servidor.',
   ].filter(Boolean).join('\n');

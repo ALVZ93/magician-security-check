@@ -1,10 +1,31 @@
-# Rubicon Labs · Automatización de seguridad y dependencias
+# 🪄 Magician Security Check
+
+**Parches del sombrero. Checks antes de fusionar.**
+
+[![CI](https://github.com/ALVZ93/magician-security-check/actions/workflows/validate-kit.yml/badge.svg)](https://github.com/ALVZ93/magician-security-check/actions/workflows/validate-kit.yml)
+[![Node.js 22 / 24 / 26](https://img.shields.io/badge/Node.js-22%20%7C%2024%20%7C%2026-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Dependabot daily](https://img.shields.io/badge/Dependabot-daily-025E8C?style=flat-square&logo=dependabot&logoColor=white)](.github/dependabot.yml)
+[![OSV Scanner](https://img.shields.io/badge/OSV-Scanner-6D28D9?style=flat-square)](https://google.github.io/osv-scanner/)
+
+```text
+            .                 *
+                      /\
+       *             /  \            .
+                    / *  \
+                   /______\       *
+               .-'________'-.    /
+              '--------------'  /
+                               /
+         [ stacks ] --> [ audit ] --> [ PR ] --> [ checks ] --> [ merge ]
+```
+
+**[Instalación](#instalación-en-una-aplicación-o-monorepo) · [Autofusión](#autofusión-de-patchminor) · [Contrato](docs/automation-spec.md) · [CI](https://github.com/ALVZ93/magician-security-check/actions)**
 
 Kit para **detectar stacks, auditar vulnerabilidades y mantener dependencias mediante PR de Dependabot**, con autofusión de patch/minor cuando GitHub exige que pasen los checks de seguridad y de la aplicación.
 
-Los scripts no tienen dependencias npm. Este repositorio contiene el kit y sus pruebas; las plantillas que se instalan en cada aplicación están en `examples/`.
+Creado por **Rubicon Labs**. Los scripts no tienen dependencias npm. Este repositorio contiene el kit y sus pruebas; las plantillas que se instalan en cada aplicación están en `examples/`.
 
-## Qué hace
+## Qué sale del sombrero
 
 - Descubre manifiestos y lockfiles recursivamente, incluidos proyectos independientes y workspaces, sin recorrer dependencias instaladas, salidas de compilación ni enlaces simbólicos.
 - Identifica Next.js, Astro, React, Vue, Nuxt, Angular, Svelte/SvelteKit, Express, Fastify, NestJS, Hono, Vite, TypeScript, Prisma y Drizzle, entre otros. Las etiquetas son informativas: **se auditan todos los paquetes del lockfile**, no solo los frameworks reconocidos.
