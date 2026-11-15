@@ -2,6 +2,7 @@ name: Validate security kit
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -22,17 +23,32 @@ jobs:
       matrix:
         node: ["22", "24", "26"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
           package-manager-cache: false
       - name: Check script syntax
         run: |
-          node --check scripts/security-check.mjs
-          node --check scripts/dependency-audit.mjs
+          for script in scripts/*.mjs checks/*.mjs; do node --check "$script"; done
       - name: Test scanner behavior
         run: node --test
+      - name: Exercise the real npm advisory registry
+        if: matrix.node == '24'
+        run: node checks/registry-integration.mjs --osv-fixture
+      - name: Exercise the real OSV scanner against the vulnerable fixture
+        if: matrix.node == '24'
+        continue-on-error: true # A vulnerability finding is expected; assert its JSON below.
+        uses: google/osv-scanner-action/osv-scanner-action@6bc832ee85d316ab9aeccf71929026841bd0e1ee # v2.7.1
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv-results.json
+            --recursive
+            ./.rubicon-osv-fixture/
+      - name: Verify OSV actually reported the vulnerable package
+        if: ${{ !cancelled() && matrix.node == '24' }}
+        run: node checks/assert-osv-fixture.mjs

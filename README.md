@@ -1,86 +1,115 @@
-# Rubicon Labs · Kit de seguridad Node.js
+# Rubicon Labs · Automatización de seguridad y dependencias
 
-Kit reutilizable para repositorios **Next.js, Astro y Node.js** que usen **npm, pnpm o Yarn**. Diseñado para GitHub Actions; auditado a nivel de **vulnerabilidades HIGH/CRITICAL**, sin corregir dependencias automáticamente.
+Kit para **detectar stacks, auditar vulnerabilidades y mantener dependencias mediante PR de Dependabot**, con autofusión de patch/minor cuando GitHub exige que pasen los checks de seguridad y de la aplicación.
 
-Este repositorio contiene el kit, sin dependencias externas ni `package.json` propio. Su CI valida los scripts y ejecuta pruebas con proyectos temporales; las plantillas para auditar tus aplicaciones están en `examples/`.
+Los scripts no tienen dependencias npm. Este repositorio contiene el kit y sus pruebas; las plantillas que se instalan en cada aplicación están en `examples/`.
 
 ## Qué hace
 
-- Se ejecuta en cada **pull request**, en cada push a `main`/`master`, los **lunes** y manualmente.
-- Comprueba que existe `package.json`, **un único lockfile**, que el gestor concuerda con él y que hay una declaración de versión de Node.
-- Detecta versiones de Node fuera de soporte en pines numéricos `.nvmrc`, `.node-version`, `volta.node` y `engines.node` simples; consulta el **índice oficial de Node.js** para comprobar pines completos (`24.22.0`, por ejemplo) contra el último parche publicado de su rama.
-- Señala imágenes Docker basadas en Node obsoleto y recuerda cuándo hace falta reconstruirlas.
-- Audita dependencias **de producción y desarrollo**, incluidas transitivas para npm y Yarn moderno, con el nivel `high` o superior. **No ejecuta `npm install` ni scripts de dependencias**.
-- Deja un resumen de resultados en la ejecución de GitHub Actions.
-- Dependabot propone PR de actualizaciones del ecosistema npm y de GitHub Actions.
+- Descubre manifiestos y lockfiles recursivamente, incluidos proyectos independientes y workspaces, sin recorrer dependencias instaladas, salidas de compilación ni enlaces simbólicos.
+- Identifica Next.js, Astro, React, Vue, Nuxt, Angular, Svelte/SvelteKit, Express, Fastify, NestJS, Hono, Vite, TypeScript, Prisma y Drizzle, entre otros. Las etiquetas son informativas: **se auditan todos los paquetes del lockfile**, no solo los frameworks reconocidos.
+- Detecta también Python, PHP/Composer, Go, Rust, Ruby, Maven, Gradle, Docker y GitHub Actions. Reconoce etiquetas de Django, Flask, FastAPI, Laravel y Symfony.
+- Consulta el calendario oficial de Node y su índice de versiones; comprueba declaraciones heredadas dentro del repositorio, ramas fuera de soporte, pines obsoletos o inexistentes y Dockerfiles con Node antiguo.
+- Audita cada raíz Node con npm/pnpm/Yarn a nivel **HIGH/CRITICAL**, incluyendo desarrollo, producción y dependencias transitivas. No instala las dependencias de la aplicación ni ejecuta sus lifecycle scripts.
+- Añade un análisis completo con **OSV-Scanner** de los manifiestos/lockfiles compatibles de otros ecosistemas. OSV falla ante cualquier vulnerabilidad conocida que encuentre, incluso de severidad inferior a HIGH.
+- Genera Dependabot para los ecosistemas/directorios detectados: comprobación **diaria** de versiones, PR con manifiestos y lockfiles actualizados, grupos de patch/minor y PR separadas para majors.
+- Solo solicita autofusión de PR verificadas de Dependabot con cambios patch/minor en archivos de dependencias permitidos. GitHub espera a que se satisfagan los checks obligatorios y las revisiones configuradas.
 
-## Instalación (por repositorio)
+## Instalación en una aplicación o monorepo
 
-1. Copia `examples/node-security.yml.example` a `.github/workflows/node-security.yml`, `examples/dependabot.yml.example` a `.github/dependabot.yml` y los dos scripts `scripts/*.mjs` a `scripts/` del proyecto que quieras auditar. Si ya tienes configuración de Dependabot, integra sus entradas sin sobrescribir las existentes.
-2. En cada proyecto, crea o revisa `.nvmrc` con la **rama compatible** de Node (por ejemplo, `24`); alternativamente declara `"engines": { "node": "^24.0.0" }` en `package.json`. El número `24` es un **ejemplo**, no migres un proyecto que requiera Node 22 sin probarlo.
-3. Confirma que el proyecto tiene un lockfile versionado (`package-lock.json`, `pnpm-lock.yaml` o `yarn.lock`). Para **pnpm y Yarn** declara `packageManager` con una versión concreta, por ejemplo `"packageManager": "pnpm@10.20.0"` (usa realmente la que tengas en tu proyecto).
-4. Sube los archivos en una rama y abre PR. El trabajo `Node security audit` debe ejecutarse en **Actions**; si falla, inspecciona los mensajes `FAIL` y corrige los problemas reales, no desactives los controles.
-5. En **Settings → Security & analysis**, habilita **Dependabot alerts** y, si está disponible, **Dependabot security updates**. Version updates las gestiona el YAML.
-6. Comprueba de forma independiente el runtime **en el hosting real**. Consulta `SECURITY-CHECKLIST.md`.
+1. Copia **todos** los archivos `scripts/*.mjs` a `scripts/` del repositorio destino, conservando sus nombres.
+2. Copia `examples/node-security.yml.example` a `.github/workflows/node-security.yml`.
+3. Declara la versión de Node de tus aplicaciones mediante `.nvmrc`, `.node-version`, Volta o `engines.node`. El runtime del escáner no sustituye esa declaración. Cada proyecto independiente debe tener su lockfile; pnpm/Yarn necesitan `packageManager` con versión concreta, como `pnpm@10.20.0`.
+4. Desde la raíz del repositorio destino, revisa el inventario y genera Dependabot:
 
-### Si usas monorepo
+   ```bash
+   node scripts/project-inventory.mjs
+   node scripts/project-inventory.mjs --write-dependabot
+   ```
 
-La configuración de ejemplo audita **un único proyecto en la raíz**. En proyectos con `apps/web`, `apps/api`, etc., crea jobs separados que ejecuten los scripts con `working-directory: apps/web` (repite para cada paquete que tenga lockfile independiente), o adapta el flujo a tu workspace. En ese caso, deja los scripts accesibles desde cada ubicación con una ruta ajustada, como `node ../../scripts/security-check.mjs`. `Dependabot` también necesita `directory` o `directories` adecuados. **No interpretes un PASS en la raíz como una auditoría del monorepo completo**.
+   `--write-dependabot` se niega a sobrescribir `.github/dependabot.yml`. Si ya existe, genera un candidato y **combina las entradas** conservando registros privados, exclusiones y configuración propia:
 
-### Gestores soportados
+   ```bash
+   node scripts/project-inventory.mjs --dependabot > dependabot.generated.yml
+   ```
 
-| Gestor | Comando | Observación |
-| --- | --- | --- |
-| npm | `npm audit --audit-level=high` | Requiere lockfile válido. |
-| pnpm | `corepack pnpm audit --audit-level high` | `packageManager` debe declarar pnpm. |
-| Yarn 2+ | `corepack yarn npm audit --all --recursive --severity high` | Auditoría de workspaces y transitivas. |
-| Yarn 1 | `corepack yarn audit --level high` | Puede fallar también por avisos menores debido a su código de salida. |
+   `examples/dependabot.yml.example` sigue disponible como ejemplo mínimo para un proyecto Node en la raíz.
+5. Activa **Dependabot alerts** y **Dependabot security updates** en GitHub. Las actualizaciones de versiones las configura el YAML; las correcciones de vulnerabilidades conocidas necesitan también security updates.
+6. Abre una PR de instalación y comprueba el job **Rubicon security**, además de tus tests, lint y build habituales.
 
-Si estás en Yarn 1, considera una migración planificada; no la hagas durante un parche urgente de Node sin pruebas.
+El inventario se vuelve a calcular en cada ejecución. Al añadir un ecosistema o una raíz independiente nueva, vuelve a generar/comparar Dependabot para que sus actualizaciones incluyan esa ubicación. El kit no modifica silenciosamente una configuración existente ni se instala en otros repositorios de tu cuenta.
 
-## Opcional: revisión de nuevas dependencias en PR
+### Monorepos y cobertura
 
-`examples/dependency-review.yml.example` se puede copiar a `.github/workflows/dependency-review.yml`, **solo si GitHub Dependency Review está disponible en ese repositorio**. Según el tipo de repositorio/plan puede no estar habilitado. El flujo principal no depende de ello.
+- npm/Yarn: interpreta `workspaces` como lista o `workspaces.packages`.
+- pnpm: interpreta una lista YAML sencilla `packages:` en `pnpm-workspace.yaml`, con patrones y exclusiones. Ante sintaxis que no puede interpretar, no supone cobertura: muestra el paquete como no verificado.
+- Ejecuta las auditorías por cada directorio con lockfile Node propio; un fallo no impide revisar las demás raíces. Las declaraciones `.nvmrc`/`.node-version` se heredan hasta la raíz del repositorio.
+- Un manifiesto Node sin lockfile propio ni pertenencia verificable a un workspace hace fallar el análisis. Los proyectos de otros ecosistemas que necesiten un lockfile/artefacto auditable también se señalan si no lo tienen.
+- Se omiten directorios como `node_modules`, `vendor`, `.venv`, `.git`, `dist`, `build`, `target` y salidas habituales de frameworks. Si guardas código fuente en uno de esos directorios, adapta esa lista antes de usar el kit.
 
-## Limitaciones importantes
+## Autofusión de patch/minor
 
-- **No verifica la versión real de Node que ejecuta Vercel, Netlify o tu servidor.** CI y producción pueden diferir.
-- Un `npm audit` limpio **no demuestra ausencia de vulnerabilidades**. Solo detecta avisos conocidos y disponibles en el registro.
-- La inspección de Dockerfiles es estática y básica. Docker usa imágenes, que deben reconstruirse y desplegarse tras un parche.
-- `engines.node` con rangos semver complejos genera aviso: hay que revisar límites de soporte y compatibilidad manualmente.
-- La comprobación de último parche necesita internet para leer `https://nodejs.org/dist/index.json`; si falla, los pines completos se consideran no verificables y el trabajo falla.
-- Las ramas Node soportadas en `scripts/security-check.mjs` (**22, 24, 26**) corresponden al **21 de octubre de 2026**. El conjunto debe actualizarse conforme al calendario oficial de mantenimiento.
-- El análisis ejecuta Node 24 actualizado **solo para el escáner**. No es una garantía sobre el Node efectivo de tus despliegues ni reemplaza tus propios tests con la versión real de la app.
+1. Copia `examples/dependabot-automerge.yml.example` a `.github/workflows/dependabot-automerge.yml`.
+2. Habilita **Allow auto-merge** y el método **Squash** en el repositorio.
+3. Protege la rama predeterminada con checks obligatorios de seguridad **y de tu aplicación**. Configura, por ejemplo, `Rubicon security` y el nombre real de tu job de tests/build. Para exigir también la prueba contra la base actual, activa la opción de mantener la rama actualizada antes de fusionar.
+4. Crea la variable de repositorio **`RUBICON_REQUIRED_CHECKS`** con esos mismos nombres:
 
-## Comprobación local
+   ```json
+   ["Rubicon security", "Application tests"]
+   ```
 
-Ejecuta estos comandos **desde la raíz de la aplicación que quieras auditar**, después de copiar los scripts:
+El kit comprueba mediante API que GitHub **exige todos esos checks**; escribir los nombres en la variable no basta. Se necesitan al menos dos nombres distintos. Sin configuración verificable, sin soporte de protección en el plan, ante fallos de API o si cambia el SHA de la PR, no habilita autofusión.
+
+El workflow `pull_request_target` solo obtiene código del **commit base** y usa metadatos de Dependabot con verificación de firmas. Nunca obtiene ni ejecuta código de la PR con el token de escritura. La solicitud usa `--auto --match-head-commit`, sin bypass administrativo.
+
+**Quedan para revisión:** majors, metadatos ambiguos, forks, cambios de código, de Actions, Dockerfiles y declaraciones de runtime. Una actualización minor puede ser incompatible, especialmente en paquetes `0.x`; tus checks deben cubrir el comportamiento real de la aplicación. Una política que exige revisión humana seguirá esperando esa revisión.
+
+Para desactivar futuras solicitudes, deshabilita el workflow. Desactiva también las PR ya encoladas con `gh pr merge NUMERO --disable-auto`.
+
+## Ejecución local
+
+Desde la raíz del repositorio destino, con Node 22 o superior:
+
+```bash
+node scripts/project-inventory.mjs --json
+node scripts/audit-projects.mjs
+```
+
+Para revisar solo las declaraciones de un proyecto:
 
 ```bash
 node scripts/security-check.mjs --offline
 node scripts/dependency-audit.mjs
 ```
 
-`--offline` salta la consulta de versiones (avisa, no certifica que el patch esté actualizado). Para una comprobación completa, ejecuta sin ese parámetro.
+`--offline` solo evita las consultas del runtime; usa un snapshot de soporte de octubre de 2026, avisa y no certifica el parche actual. Las auditorías de paquetes siguen necesitando red. npm/pnpm/Yarn están orientados a Linux/macOS y al runner Ubuntu; en Windows, usa WSL para esas auditorías. pnpm/Yarn requieren Corepack disponible.
 
-La auditoría de dependencias está orientada a Linux/macOS y GitHub Actions (Ubuntu); en Windows, ejecútala desde WSL.
+## Límites
 
-### Validación del propio kit
+- El kit comprueba archivos y avisos conocidos; un análisis limpio no demuestra ausencia de vulnerabilidades ni certifica la versión de Node desplegada en Vercel, Netlify o tus servidores. Consulta `SECURITY-CHECKLIST.md`.
+- Dependabot busca versiones publicadas y genera las correcciones; si no existe parche, el análisis seguirá fallando. No se ejecuta `audit fix --force` ni se saltan los checks para cerrar una alerta.
+- Las vulnerabilidades transitivas dependen de la cobertura del gestor, del lockfile y de los avisos disponibles. Requisitos Python sin versiones fijadas y artefactos que OSV no soporte requieren resolución/revisión adicional.
+- La resolución de `pom.xml` en OSV no incluye actualmente dependencias de test; añade el control específico de tu pipeline Maven si necesitas esa cobertura.
+- Las etiquetas de stack no determinan compatibilidad entre versiones. Las majors y las migraciones necesitan revisión.
+- Docker se detecta para actualizaciones e inspección básica de Node; esta plantilla no audita paquetes del sistema operativo dentro de las imágenes.
+- Registros privados necesitan configuración/credenciales de Dependabot y del gestor correspondiente. El generador no elimina ni configura esos secretos.
+- El acceso a protección de ramas en repositorios privados depende del plan de GitHub; la política de autofusión falla de forma cerrada si no está disponible.
 
-Desde este repositorio, con Node 22 o superior y sin instalar paquetes:
+## Desarrollo y validación del kit
 
 ```bash
-node --check scripts/security-check.mjs
-node --check scripts/dependency-audit.mjs
 node --test
 ```
 
-Las pruebas comprueban metadatos válidos e inválidos, lockfiles, declaraciones de Node, imágenes Docker, el modo offline, el resumen de Actions y las validaciones previas de la auditoría. No sustituyen una auditoría real contra los registros de paquetes.
+CI prueba Node 22/24/26, inventario mixto, workspaces, enlaces, gestores, soporte de Node y casos negativos de autofusión. También contrasta una dependencia de desarrollo vulnerable aislada contra el registro npm y OSV, sin instalarla ni ejecutar lifecycle scripts. Las plantillas se validan con actionlint antes de publicarse.
+
+Contrato de comportamiento: [`docs/automation-spec.md`](docs/automation-spec.md).
 
 ## Fuentes oficiales
 
-- [Aviso Node.js de octubre de 2026](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
-- [Calendario de soporte Node.js](https://github.com/nodejs/Release)
-- [setup-node](https://github.com/actions/setup-node)
+- [Calendario de soporte de Node.js](https://github.com/nodejs/Release)
 - [npm audit](https://docs.npmjs.com/cli/v11/commands/npm-audit/)
-- [GitHub Dependabot](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates)
+- [OSV-Scanner y su integración con Actions](https://google.github.io/osv-scanner/github-action/)
+- [Opciones de Dependabot](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
+- [Actualizaciones de seguridad de Dependabot](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-security-updates)
+- [Automatizar Dependabot con checks obligatorios](https://docs.github.com/en/code-security/tutorials/secure-your-dependencies/automate-dependabot-with-actions)

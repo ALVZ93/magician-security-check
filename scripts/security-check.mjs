@@ -5,14 +5,15 @@
  * It checks intent expressed in the repository, NOT the production server.
  */
 import { existsSync, readFileSync, readdirSync, appendFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { loadSupportedMajors } from './node-releases.mjs';
 
 const failures = [];
 const warnings = [];
 const info = [];
 const pinnedVersions = [];
 const offline = process.argv.includes('--offline');
-const supported = new Set([22, 24, 26]); // Node release policy as of Oct 2026. Update later.
+let supported = new Set([22, 24, 26]); // Offline snapshot: October 2026.
 const clean = (s) => String(s || '').trim().replace(/^v(?=\d)/, '');
 const readText = (path) => readFileSync(path, 'utf8').trim();
 const add = (level, message) => {
@@ -27,11 +28,34 @@ const cmp = (a, b) => {
   return 0;
 };
 
+if (offline) add('WARN', 'Modo offline: ramas soportadas según snapshot de octubre de 2026; no se certifica su soporte actual.');
+else {
+  try { supported = await loadSupportedMajors(); }
+  catch (error) { add('FAIL', `No se pudo comprobar el calendario oficial de soporte de Node: ${error.message}`); }
+}
+
+const rootIndex = process.argv.indexOf('--repository-root');
+const repositoryRoot = rootIndex === -1 ? process.cwd() : resolve(process.argv[rootIndex + 1] ?? '');
+const relativeDirectory = relative(repositoryRoot, process.cwd());
+if (isAbsolute(relativeDirectory) || relativeDirectory === '..' || relativeDirectory.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)) {
+  throw new Error('--repository-root must contain the working directory');
+}
+function runtimeDeclaration(name) {
+  for (let directory = process.cwd(); ; directory = dirname(directory)) {
+    const path = join(directory, name);
+    if (existsSync(path)) return [relative(process.cwd(), path) || name, readText(path)];
+    if (directory === repositoryRoot || dirname(directory) === directory) return [name, ''];
+  }
+}
+
 if (!existsSync('package.json')) {
   add('FAIL', 'No hay package.json en la raíz. Configura working-directory para este paquete (ver README).');
 } else {
   let pkg;
-  try { pkg = JSON.parse(readText('package.json')); }
+  try {
+    pkg = JSON.parse(readText('package.json'));
+    if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('expected an object');
+  }
   catch (e) { add('FAIL', `package.json inválido: ${e.message}`); }
   if (pkg) {
     const locks = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock']
@@ -49,8 +73,8 @@ if (!existsSync('package.json')) {
     }
 
     const configs = [
-      ['.nvmrc', existsSync('.nvmrc') ? readText('.nvmrc') : ''],
-      ['.node-version', existsSync('.node-version') ? readText('.node-version') : ''],
+      runtimeDeclaration('.nvmrc'),
+      runtimeDeclaration('.node-version'),
       ['package.json > volta.node', pkg.volta?.node],
       ['package.json > engines.node', pkg.engines?.node],
     ].filter(([, val]) => typeof val === 'string' && val.trim());
@@ -73,9 +97,11 @@ if (!existsSync('package.json')) {
       const ver = clean(raw);
       if (/^\d+(?:\.\d+){0,2}$/.test(ver)) {
         const major = Number(ver.split('.')[0]);
-        if (!supported.has(major)) add('FAIL', `${location}: Node ${ver} fuera de las ramas soportadas (22/24/26 en oct. 2026).`);
+        if (!supported.has(major)) add('FAIL', `${location}: Node ${ver} fuera de las ramas soportadas (${[...supported].join('/')}).`);
         if (isFullVersion(ver)) pinnedVersions.push([location, ver]);
       } else if (location.includes('engines.node')) {
+        const simpleRange = ver.match(/^[~^](\d+)\.\d+\.\d+$/);
+        if (simpleRange && !supported.has(Number(simpleRange[1]))) add('FAIL', `${location}: ${ver} solo permite una rama de Node fuera de soporte.`);
         // Semver ranges must not be mistaken for a runtime pin.
         add('WARN', `${location} usa un rango (${ver}). Comprueba que no permite versiones EOL ni impide parches.`);
       } else {
@@ -140,7 +166,8 @@ async function verifyPatches() {
   for (const [location, value] of pinnedVersions) {
     const major = Number(value.split('.')[0]);
     const latest = latestByMajor.get(major);
-    if (!latest) add('FAIL', `No se encontró la última versión de Node ${major} en el índice oficial.`);
+    if (!versions.some((release) => clean(release.version) === value)) add('FAIL', `${location}: Node ${value} no figura como versión publicada en el índice oficial.`);
+    else if (!latest) add('FAIL', `No se encontró la última versión de Node ${major} en el índice oficial.`);
     else if (cmp(value, latest) < 0) add('FAIL', `${location}: Node ${value} es anterior a ${latest} (último patch de la rama ${major}).`);
     else add('INFO', `${location}: Node ${value} coincide con el último patch publicado para ${major}.`);
   }

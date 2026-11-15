@@ -1,11 +1,12 @@
-name: Node security audit
+name: Rubicon security audit
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main, master]
   schedule:
-    - cron: "17 7 * * 1" # Lunes 07:17 UTC; GitHub schedules use UTC
+    - cron: "17 7 * * *" # Daily 07:17 UTC
   workflow_dispatch:
 
 permissions:
@@ -16,26 +17,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  security:
-    name: Runtime, lockfile and dependency audit
+  scan:
+    name: Scan projects
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up recent patched Node for the scanner
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
           check-latest: true
           package-manager-cache: false
 
-      # This scanner Node version is NOT proof of the version deployed.
-      - name: Check runtime declarations and deployment files
-        run: node scripts/security-check.mjs
+      - name: Discover projects and stacks
+        id: inventory
+        run: node scripts/project-inventory.mjs
 
-      - name: Audit full dependency tree at HIGH severity and above
-        run: node scripts/dependency-audit.mjs
+      # Scanner Node is not proof of the runtime deployed by each application.
+      - name: Audit every Node lockfile root (dev and production)
+        if: ${{ !cancelled() }}
+        run: node scripts/audit-projects.mjs
+
+      # No SARIF upload or paid code-scanning feature is needed for this full scan.
+      - name: Audit supported lockfiles across ecosystems with OSV
+        if: ${{ !cancelled() && steps.inventory.outputs.has-osv-inputs == 'true' }}
+        uses: google/osv-scanner-action/osv-scanner-action@6bc832ee85d316ab9aeccf71929026841bd0e1ee # v2.7.1
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+  security:
+    name: Rubicon security
+    if: ${{ always() }}
+    needs: scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every scanner to succeed
+        env:
+          SCAN_RESULT: ${{ needs.scan.result }}
+        run: test "$SCAN_RESULT" = success
