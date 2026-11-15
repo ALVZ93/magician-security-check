@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Magician agent report v1",
+  "type": "object",
+  "required": ["schemaVersion", "command", "status", "exitCode", "root", "data", "errors", "warnings"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "command": { "type": "string" },
+    "status": { "enum": ["ok", "findings", "error"] },
+    "exitCode": { "enum": [0, 1, 2] },
+    "root": { "type": "string" },
+    "data": { "type": "object" },
+    "errors": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+    "warnings": { "type": "array", "items": { "$ref": "#/$defs/message" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "message": {
+      "type": "object", "required": ["code", "message"],
+      "properties": { "code": { "type": "string" }, "message": { "type": "string" }, "directory": { "type": "string" }, "repository": { "type": "string" }, "paths": { "type": "array", "items": { "type": "string" } } },
+      "additionalProperties": false
+    }
+  }
+}

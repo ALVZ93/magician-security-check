@@ -4,8 +4,9 @@ import { dirname, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ignored = new Set(['.git', '.hg', '.svn', 'node_modules', 'vendor', '.venv', 'venv',
-  '.yarn', '.pnpm-store', '__pycache__', '.next', '.nuxt', '.astro', '.svelte-kit',
+  '.yarn', '.pnpm-store', '.magician', '__pycache__', '.next', '.nuxt', '.astro', '.svelte-kit',
   'dist', 'build', 'coverage', 'target', 'bin', 'obj', '.rubicon-osv-fixture']);
+export { ignored as ignoredDirectories };
 const nodeLocks = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock'];
 const stackPackages = {
   next: 'Next.js', astro: 'Astro', react: 'React', vue: 'Vue', nuxt: 'Nuxt',

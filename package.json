@@ -1,0 +1,12 @@
+{
+  "name": "magician-security-check",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stack discovery, vulnerability checks and agent-friendly security automation.",
+  "type": "module",
+  "bin": { "magician-security-check": "cli.mjs" },
+  "engines": { "node": ">=22" },
+  "repository": { "type": "git", "url": "https://github.com/ALVZ93/magician-security-check.git" },
+  "files": ["cli.mjs", "scripts/", "examples/", "docs/", "AGENTS.md"],
+  "scripts": { "test": "node --test" }
+}
