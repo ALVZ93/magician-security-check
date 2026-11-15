@@ -143,3 +143,9 @@ test('major detection also covers npm v1 nested dependency trees', () => {
   const changed = Buffer.from('{"dependencies":{"a":{"version":"1.0.0","dependencies":{"b":{"version":"2.0.0"}}}}}');
   assert.equal(incompatibleUpdates(original, changed)[0].name, 'node_modules/a/node_modules/b');
 });
+
+test('hoisting to a different path cannot hide an introduced dependency major', () => {
+  const before = lock('1.0.0');
+  const after = Buffer.from('{"packages":{"node_modules/parent/node_modules/example":{"version":"2.0.0"}}}');
+  assert.equal(incompatibleUpdates(before, after)[0].to, '2.0.0');
+});

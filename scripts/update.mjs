@@ -33,6 +33,15 @@ export function incompatibleUpdates(before, after) {
     const oldRelease = version.match(/^(\d+)\.\d+\.\d+$/), newRelease = next.match(/^(\d+)\.\d+\.\d+$/);
     if (!oldRelease || !newRelease || oldRelease[1] !== newRelease[1]) changes.push({ name, from: version, to: next });
   }
+  // Hoisting may move a dependency; a new path must not hide a new major.
+  const packageName = (path) => path.slice(path.lastIndexOf('node_modules/') + 'node_modules/'.length);
+  for (const [path, version] of current) {
+    if (previous.has(path)) continue;
+    const known = [...previous].filter(([oldPath]) => packageName(oldPath) === packageName(path)).map(([, value]) => value);
+    if (!known.length) continue;
+    const next = version.match(/^(\d+)\.\d+\.\d+$/);
+    if (!next || !known.some((value) => value.match(/^(\d+)\.\d+\.\d+$/)?.[1] === next[1])) changes.push({ name: path, from: known.join(', '), to: version });
+  }
   return changes;
 }
 
