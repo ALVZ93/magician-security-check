@@ -2,10 +2,15 @@
 
 **Parches del sombrero. Checks antes de fusionar.**
 
+![Mago con túnica azul y bastón dorado protegiendo libros de hechizos y un castillo, en una ilustración de fantasía de los años 80.](assets/magician-fantasy-80s.png)
+
 [![CI](https://github.com/ALVZ93/magician-security-check/actions/workflows/validate-kit.yml/badge.svg)](https://github.com/ALVZ93/magician-security-check/actions/workflows/validate-kit.yml)
 [![Node.js 22 / 24 / 26](https://img.shields.io/badge/Node.js-22%20%7C%2024%20%7C%2026-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Dependabot daily](https://img.shields.io/badge/Dependabot-daily-025E8C?style=flat-square&logo=dependabot&logoColor=white)](.github/dependabot.yml)
 [![OSV Scanner](https://img.shields.io/badge/OSV-Scanner-6D28D9?style=flat-square)](https://google.github.io/osv-scanner/)
+
+<details>
+<summary>El hechizo en ASCII</summary>
 
 ```text
             .                 *
@@ -18,6 +23,8 @@
                                /
          [ stacks ] --> [ audit ] --> [ PR ] --> [ checks ] --> [ merge ]
 ```
+
+</details>
 
 **[Instalación](#instalación-en-una-aplicación-o-monorepo) · [Autofusión](#autofusión-de-patchminor) · [Contrato](docs/automation-spec.md) · [CI](https://github.com/ALVZ93/magician-security-check/actions)**
 
